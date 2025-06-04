@@ -49,7 +49,7 @@ const ContextProvider = (props) => {
         newResponse += "<b>" + responseArray[i] + "</b>";
       }
     }
-    newResponse2 = newResponse.split("*").join("</br>");
+    newResponse2 = newResponse.split("*").join("<br/>");
     newResponseArray = newResponse2.split(" ");
 
     // Save the prompt and its result

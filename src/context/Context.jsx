@@ -1,5 +1,12 @@
-import { createContext, useState } from "react";
+import { createContext, useState, useEffect } from "react";
 import main from "../config/gemini";
+import { auth, provider, db } from "../firebase";
+import {
+  signInWithPopup,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+} from "firebase/auth";
+import { collection, addDoc, getDocs } from "firebase/firestore";
 
 export const Context = createContext();
 
@@ -10,6 +17,7 @@ const ContextProvider = (props) => {
   const [showResult, setShowResult] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resultData, setResultData] = useState("");
+  const [user, setUser] = useState(null);
 
   function delayPara(index, nextWord) {
     setTimeout(() => {
@@ -21,6 +29,30 @@ const ContextProvider = (props) => {
     setLoading(false)
     setShowResult(false)
   }
+
+  const signInWithGoogle = async () => {
+    await signInWithPopup(auth, provider);
+  };
+
+  const logout = async () => {
+    await firebaseSignOut(auth);
+  };
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        const querySnap = await getDocs(
+          collection(db, "users", currentUser.uid, "chats")
+        );
+        const chats = querySnap.docs.map((d) => d.data());
+        setPrevoiusPrompt(chats);
+      } else {
+        setPrevoiusPrompt([]);
+      }
+    });
+    return unsub;
+  }, []);
 
  const onSent = async (prompt) => {
   let response;
@@ -54,6 +86,16 @@ const ContextProvider = (props) => {
 
     // Save the prompt and its result
     setPrevoiusPrompt((prev) => [...prev, { prompt: usedPrompt, result: newResponse2 }]);
+    if (user) {
+      try {
+        await addDoc(collection(db, "users", user.uid, "chats"), {
+          prompt: usedPrompt,
+          result: newResponse2,
+        });
+      } catch (e) {
+        console.log(e);
+      }
+    }
 
     // Animate result
     for (let i = 0; i < newResponseArray.length; i++) {
@@ -82,7 +124,10 @@ const ContextProvider = (props) => {
     setShowResult,
     setResultData,
     setLoading,
-    newChat
+    newChat,
+    user,
+    signInWithGoogle,
+    logout
   };
 
   return (
